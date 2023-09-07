@@ -112,10 +112,17 @@ fact {
 	all e1, e2: Event | hb[e1, e2] implies e1.date.lt[e2.date]
 }
 
+
+pred afterNEvents[E: Event, target: Event, n: Int] {
+    some es: Event | #(es) = n and target in es and all e: es | hb[e, target]
+}
+
 -- Does the conviction c occur after three preceding felonies?
 pred afterThirdFelony[c: Conviction] {
-	some f1, f2, f3: Felony |
-		#(f1 + f2 + f3) = 3 and hb[f1, c] and hb[f2, c] and hb[f3, c]
+	--some f1, f2, f3: Felony |
+		--#(f1 + f2 + f3) = 3 and hb[f1, c] and hb[f2, c] and hb[f3, c]
+	 some f1, f2, f3: Conviction |
+	        afterNEvents[Conviction, f1 + f2 + f3, 3]
 }
 -- No conviction may be expunged after three or more felonies (Sec. 1, 1a).
 pred sec1_1a {	
@@ -124,8 +131,11 @@ pred sec1_1a {
 
 -- Does the assaultive felony af occur after two preceding assaultive felonies?
 pred afterSecondAssault[af: AssaultiveFelony] {
-	some af1, af2: AssaultiveFelony |
-		af1 != af2 and hb[af1, af] and hb[af2, af]
+	--some af1, af2: AssaultiveFelony |
+		--af1 != af2 and hb[af1, af] and hb[af2, af]
+
+    some af1, af2: AssaultiveFelony |
+        af1 != af2 and afterNEvents[AssaultiveFelony, af1 + af2, 2]
 }
 -- No more than two assaultive felonies may be expunged (Sec. 1, 1b).
 pred sec1_1b {
@@ -195,7 +205,7 @@ fact {
 }
 
 pred show {
-	--backwardWaiting
+	backwardWaiting
 	--not forwardWaiting
 
 	-- test whether now can have multiple events
@@ -203,12 +213,12 @@ pred show {
 
 	-- Q: is it possible to have 4 felonies expunged?
 	-- A: Yes! because of the one-bad-night rule
-	some f1, f2, f3, f4: Felony |
-		#(f1+f2+f3+f4) = 4
-		and (eventually f1 in now) and f1.expunged
-		and (eventually f2 in now) and f2.expunged
-		and (eventually f3 in now) and f3.expunged
-		and (eventually f4 in now) and f4.expunged
+	--some f1, f2, f3, f4: Felony |
+		--#(f1+f2+f3+f4) = 4
+	--	and (eventually f1 in now) and f1.expunged
+	--	and (eventually f2 in now) and f2.expunged
+	--	and (eventually f3 in now) and f3.expunged
+	--	and (eventually f4 in now) and f4.expunged
 	
 }
 
