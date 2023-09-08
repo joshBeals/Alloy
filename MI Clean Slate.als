@@ -114,32 +114,43 @@ fact {
 
 
 pred afterNEvents[E: Event, target: Event, n: Int] {
-    some es: Event | #(es) = n and target in es and all e: es | hb[e, target]
+    some es: Event | #(es) = n and target in es and all e: es | hb[e, E]
 }
 
 -- Does the conviction c occur after three preceding felonies?
-pred afterThirdFelony[c: Conviction] {
+--pred afterThirdFelony[c: Conviction] {
 	--some f1, f2, f3: Felony |
 		--#(f1 + f2 + f3) = 3 and hb[f1, c] and hb[f2, c] and hb[f3, c]
-	 some f1, f2, f3: Conviction |
-	        afterNEvents[Conviction, f1 + f2 + f3, 3]
+	-- some f1, f2, f3: Felony |
+	       -- afterNEvents[Conviction, f1 + f2 + f3, 3]
+--}
+
+pred noExpungedAfterNEvents[E: Event, N: Int] {
+    no e: E | afterNEvents[E, e, N] and expunged[e]
 }
+
 -- No conviction may be expunged after three or more felonies (Sec. 1, 1a).
-pred sec1_1a {	
-	no c: Conviction | afterThirdFelony[c] and expunged[c]
+--pred sec1_1a {	
+	--no c: Conviction | afterThirdFelony[c] and expunged[c]
+--}
+pred sec1_1a {
+    noExpungedAfterNEvents[Conviction, 3]
 }
 
 -- Does the assaultive felony af occur after two preceding assaultive felonies?
-pred afterSecondAssault[af: AssaultiveFelony] {
+--pred afterSecondAssault[af: AssaultiveFelony] {
 	--some af1, af2: AssaultiveFelony |
 		--af1 != af2 and hb[af1, af] and hb[af2, af]
 
-    some af1, af2: AssaultiveFelony |
-        af1 != af2 and afterNEvents[AssaultiveFelony, af1 + af2, 2]
-}
+   -- some af1, af2: AssaultiveFelony |
+       -- af1 != af2 and afterNEvents[AssaultiveFelony, af1 + af2, 2]
+--}
 -- No more than two assaultive felonies may be expunged (Sec. 1, 1b).
+--pred sec1_1b {
+	--no af: AssaultiveFelony | afterSecondAssault[af] and expunged[af]
+--}
 pred sec1_1b {
-	no af: AssaultiveFelony | afterSecondAssault[af] and expunged[af]
+    noExpungedAfterNEvents[AssaultiveFelony, 2]
 }
 
 -- Does the ten-year felony ty occur after a preceding ten-year felony?
