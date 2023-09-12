@@ -113,28 +113,89 @@ fact {
 }
 
 
-pred afterNEvents[E: Event, target: Event, n: Int] {
-    some es: Event | #(es) = n and target in es and all e: es | hb[e, E]
+pred afterNEvents[E: Event, e: Event, n: Int] {
+   	n = 1 implies afterFirstEvent[E, e]
+   	n = 2 implies afterSecondEvent[E, e]
+   	n = 3 implies afterThirdEvent[E, e]
+   	n = 4 implies afterFourthEvent[E, e]
+   	n = 5 implies afterFifthEvent[E, e]
+   	n = 6 implies afterSixthEvent[E, e]
+   	n = 7 implies afterSeventhEvent[E, e]
+   	n > 7 implies afterEightEvent[E, e]
+}
+
+-- Does the Event e occur after 1 preceding events E?
+pred afterFirstEvent[E: Event, e: Event] {
+  some e1: E |
+    hb[e1, e]
+}
+
+-- Does the Event e occur after 2 preceding events E?
+pred afterSecondEvent[E: Event, e: Event] {
+  some e1: E |
+    afterFirstEvent[E, e] and hb[e1, e] and no e2: E |
+      afterFirstEvent[E, e] and hb[e2, e] and e1 != e2
+}
+
+-- Does the Event e occur after 3 preceding events E?
+pred afterThirdEvent[E: Event, e: Event] {
+  some e1: E |
+    afterSecondEvent[E, e] and hb[e1, e] and no e2: E |
+      afterSecondEvent[E, e] and hb[e2, e] and e1 != e2
+}
+
+-- Does the Event e occur after 4 preceding events E?
+pred afterFourthEvent[E: Event, e: Event] {
+  some e1: E |
+    afterThirdEvent[E, e] and hb[e1, e] and no e2: E |
+      afterThirdEvent[E, e] and hb[e2, e] and e1 != e2
+}
+
+-- Does the Event e occur after 5 preceding events E?
+pred afterFifthEvent[E: Event, e: Event] {
+  some e1: E |
+    afterFourthEvent[E, e] and hb[e1, e] and no e2: E |
+      afterFourthEvent[E, e] and hb[e2, e] and e1 != e2
+}
+
+-- Does the Event e occur after 6 preceding events E?
+pred afterSixthEvent[E: Event, e: Event] {
+  some e1: E |
+    afterFifthEvent[E, e] and hb[e1, e] and no e2: E |
+      afterFifthEvent[E, e] and hb[e2, e] and e1 != e2
+}
+
+-- Does the Event e occur after 7 preceding events E?
+pred afterSeventhEvent[E: Event, e: Event] {
+  some e1: E |
+    afterSixthEvent[E, e] and hb[e1, e] and no e2: E |
+      afterSixthEvent[E, e] and hb[e2, e] and e1 != e2
+}
+
+-- Does the Event e occur after 8 preceding events E?
+pred afterEightEvent[E: Event, e: Event] {
+  some e1: E |
+    afterSeventhEvent[E, e] and hb[e1, e] and no e2: E |
+      afterSeventhEvent[E, e] and hb[e2, e] and e1 != e2
 }
 
 -- Does the conviction c occur after three preceding felonies?
 --pred afterThirdFelony[c: Conviction] {
-	--some f1, f2, f3: Felony |
+--	some f1, f2, f3: Felony |
 		--#(f1 + f2 + f3) = 3 and hb[f1, c] and hb[f2, c] and hb[f3, c]
-	-- some f1, f2, f3: Felony |
-	       -- afterNEvents[Conviction, f1 + f2 + f3, 3]
 --}
 
-pred noExpungedAfterNEvents[E: Event, N: Int] {
-    no e: E | afterNEvents[E, e, N] and expunged[e]
+pred noExpungedAfterNEvents[E: Event, E1: Event, N: Int] {
+    no e: E | afterNEvents[E, E1, N] and expunged[e]
 }
 
--- No conviction may be expunged after three or more felonies (Sec. 1, 1a).
+--No conviction may be expunged after three or more felonies (Sec. 1, 1a).
 --pred sec1_1a {	
-	--no c: Conviction | afterThirdFelony[c] and expunged[c]
+--	no c: Conviction | afterThirdFelony[c] and expunged[c]
 --}
+
 pred sec1_1a {
-    noExpungedAfterNEvents[Conviction, 3]
+   noExpungedAfterNEvents[Felony, Conviction, 5]
 }
 
 -- Does the assaultive felony af occur after two preceding assaultive felonies?
@@ -150,7 +211,7 @@ pred sec1_1a {
 	--no af: AssaultiveFelony | afterSecondAssault[af] and expunged[af]
 --}
 pred sec1_1b {
-    noExpungedAfterNEvents[AssaultiveFelony, 2]
+    noExpungedAfterNEvents[AssaultiveFelony, AssaultiveFelony, 2]
 }
 
 -- Does the ten-year felony ty occur after a preceding ten-year felony?
@@ -216,7 +277,7 @@ fact {
 }
 
 pred show {
-	backwardWaiting
+	--backwardWaiting
 	--not forwardWaiting
 
 	-- test whether now can have multiple events
@@ -224,13 +285,14 @@ pred show {
 
 	-- Q: is it possible to have 4 felonies expunged?
 	-- A: Yes! because of the one-bad-night rule
-	--some f1, f2, f3, f4: Felony |
-		--#(f1+f2+f3+f4) = 4
-	--	and (eventually f1 in now) and f1.expunged
-	--	and (eventually f2 in now) and f2.expunged
-	--	and (eventually f3 in now) and f3.expunged
-	--	and (eventually f4 in now) and f4.expunged
+	some f1, f2, f3, f4: Felony |
+		#(f1+f2+f3+f4) = 4
+		and (eventually f1 in now) and f1.expunged
+		and (eventually f2 in now) and f2.expunged
+		and (eventually f3 in now) and f3.expunged
+		and (eventually f4 in now) and f4.expunged
 	
+	--some c: AssaultiveFelony, e: AssaultiveFelony | afterSecondEvent[e, c] and expunged[c]
 }
-
+--run afterThirdEvent for 3 Conviction, 3 Felony, 3 Event, 3 Date
 run show for 5 Event, 3 Date
