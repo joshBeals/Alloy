@@ -1,4 +1,4 @@
-module expunge
+ module expunge
 
 open util/relation
 open util/ordering[Date]	-- Dates are linearly ordered
@@ -179,12 +179,6 @@ pred afterEightEvent[E: Event, e: Event] {
       afterSeventhEvent[E, e] and hb[e2, e] and e1 != e2
 }
 
--- Does the conviction c occur after three preceding felonies?
---pred afterThirdFelony[c: Conviction] {
---	some f1, f2, f3: Felony |
-		--#(f1 + f2 + f3) = 3 and hb[f1, c] and hb[f2, c] and hb[f3, c]
---}
-
 pred noExpungedAfterNEvents[E: Event, E1: Event, N: Int] {
     no e: E | afterNEvents[E, E1, N] and expunged[e]
 }
@@ -198,14 +192,6 @@ pred sec1_1a {
    noExpungedAfterNEvents[Felony, Conviction, 5]
 }
 
--- Does the assaultive felony af occur after two preceding assaultive felonies?
---pred afterSecondAssault[af: AssaultiveFelony] {
-	--some af1, af2: AssaultiveFelony |
-		--af1 != af2 and hb[af1, af] and hb[af2, af]
-
-   -- some af1, af2: AssaultiveFelony |
-       -- af1 != af2 and afterNEvents[AssaultiveFelony, af1 + af2, 2]
---}
 -- No more than two assaultive felonies may be expunged (Sec. 1, 1b).
 --pred sec1_1b {
 	--no af: AssaultiveFelony | afterSecondAssault[af] and expunged[af]
@@ -285,14 +271,14 @@ pred show {
 
 	-- Q: is it possible to have 4 felonies expunged?
 	-- A: Yes! because of the one-bad-night rule
-	some f1, f2, f3, f4: Felony |
-		#(f1+f2+f3+f4) = 4
-		and (eventually f1 in now) and f1.expunged
-		and (eventually f2 in now) and f2.expunged
-		and (eventually f3 in now) and f3.expunged
-		and (eventually f4 in now) and f4.expunged
+	--some f1, f2, f3, f4: Felony |
+		--#(f1+f2+f3+f4) = 4
+	--	and (eventually f1 in now) and f1.expunged
+	--	and (eventually f2 in now) and f2.expunged
+	--	and (eventually f3 in now) and f3.expunged
+	--	and (eventually f4 in now) and f4.expunged
 	
-	--some c: AssaultiveFelony, e: AssaultiveFelony | afterSecondEvent[e, c] and expunged[c]
+	some c: Conviction, e: Felony | afterSecondEvent[e, c] and expunged[c]
 }
 --run afterThirdEvent for 3 Conviction, 3 Felony, 3 Event, 3 Date
 run show for 5 Event, 3 Date
