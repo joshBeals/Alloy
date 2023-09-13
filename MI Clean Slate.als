@@ -240,6 +240,7 @@ pred sec1d_timing {
 	no f: Felony | interveningFelony[f, f.exp] and expungedWithinSeven[f]
 }
 
+-- WithinTimeFrame
 pred backwardWaiting {
 	no x: Expungement |
 		(some m: Misdemeanor | x.date in m.date.withinThree)
