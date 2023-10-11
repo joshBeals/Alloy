@@ -1,60 +1,74 @@
-module engine
+module rulesEngine
 
 open util/boolean
+open util/integer
+
+sig Date {}
 
 // Define a signature for conviction types
 sig ConvictionType {}
 
 // Define a signature for convictions
 abstract sig Conviction{
-    date: Int,
-    type: ConvictionType,
-    setAside: Bool // Indicates whether the conviction has been set aside
+    	date: Int,
+    	type: one ConvictionType,
 }
 
 // Define types of convictions
-one sig Misdemeanor, Felony extends Conviction{}
+sig Misdemeanor extends ConvictionType{}
+sig Felony extends ConvictionType{}
+
+// Convictions that are set aside or not
+var sig setAside in Conviction { }		
 
 // Define temporal logic for time intervals (e.g., 7 years)
-pred SevenYearsAgo[c1, c2: Conviction] {
+pred withinSevenYears[c1, c2: Conviction] {
     c2.date - c1.date >= 0 and c2.date - c1.date < 7
 }
 
+pred withinTenYears[c1, c2: Conviction] {
+    c2.date - c1.date >= 0 and c2.date - c1.date < 10
+}
+
+// Define temporal logic for time intervals (e.g., 7 years)
+pred sevenYearsAgo[c: Conviction] {
+    2023 - c.date <= 7
+}
+
+pred tenYearsAgo[c: Conviction] {
+    2023 - c.date <= 10
+}
+
+// Expunge a conviction
+pred expunge[c: Conviction] {
+	-- Is Conviction c expunged?
+	c not in setAside
+	setAside' = setAside + c
+}
+
 // Define constraints for eligibility
-pred EligibleForExpungement[c: Conviction] {
-     // Rule: A maximum of four 93-day or more misdemeanors within 7 years
-    Misdemeanor in c.type => {
-        let sevenYearsAgo = c.date - 7 |
-           #(c.date & Misdemeanor.date - sevenYearsAgo) <= 4
-    }
-    
-    // Rule: A maximum of two felony convictions within 10 years
-    Felony in c.type => {
-        let tenYearsAgo = c.date - 10 |
-            #(c.date & Felony.date - tenYearsAgo) <= 2
-    }
+pred isEligible(convictions: set Conviction) {
+  // Check eligibility for each conviction in the set.
+  all c1, c2: convictions |
+    (c1.type = Misdemeanor and not sevenYearsAgo[c1] 
+	and not withinSevenYears[c1, c2] implies expunge[c1]) or
+    (c1.type = Felony and not tenYearsAgo[c1] 
+	and not withinTenYears[c1, c2] implies expunge[c1])
 }
 
 // Define the order of convictions
 fact OrderOfConvictions {
     all c1, c2: Conviction |
-        c1.date <= c2.date
+       c1 != c2 and c1.date <= c2.date
 }
 
 // Define the intervention of offenses
-fact InterveningOffenses {
-    all c1, c2: Conviction |
-        c1.date <= c2.date and c1 != c2 =>
-        not EligibleForExpungement[c2] => 
-        no c3: Conviction |
-            c1.date <= c3.date and c3.date <= c2.date
-}
+
 
 // Define the main predicate to check expungement
 pred CheckExpungement[convictions: set Conviction] {
-    all c1, c2: convictions |
-        c1 != c2 implies not OrderOfExpungement[c1, c2]
-        EligibleForExpungement[c1]
+    all c: convictions |
+        isEligible[c]
 }
 
 // Initialize convictions
@@ -83,4 +97,4 @@ pred show {
 }
 
 // Check expungement for the initialized convictions
-run show for 7 Conviction
+run show for 2 Conviction, 2 Date, 2 ConvictionType
