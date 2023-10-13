@@ -1,100 +1,88 @@
 module rulesEngine
 
-open util/boolean
-open util/integer
-
-sig Date {}
-
-// Define a signature for conviction types
-sig ConvictionType {}
+open util/relation
+open util/ordering[Conviction]
 
 // Define a signature for convictions
 abstract sig Conviction{
-    	date: Int,
-    	type: one ConvictionType,
+	-- the events occurring within 7 years of this date
+	withinSeven: set Conviction,
+	-- the events occurring within 10 years of this date	
+	withinTen: set Conviction		
 }
 
 // Define types of convictions
-sig Misdemeanor extends ConvictionType{}
-sig Felony extends ConvictionType{}
+sig Misdemeanor extends Conviction{}
+sig Felony extends Conviction{}
 
 // Convictions that are set aside or not
-var sig setAside in Conviction { }		
+var sig setAside in Conviction { }	
+var sig curr in Conviction { }	
 
-// Define temporal logic for time intervals (e.g., 7 years)
-pred withinSevenYears[c1, c2: Conviction] {
-    c2.date - c1.date >= 0 and c2.date - c1.date < 7
+-- Pairs of dates that are not within 7
+fun beyondSeven: Conviction->Conviction {
+	(^(ordering/next) & Conviction->Conviction) - withinSeven
 }
 
-pred withinTenYears[c1, c2: Conviction] {
-    c2.date - c1.date >= 0 and c2.date - c1.date < 10
+-- Pairs of dates that are not within 10
+fun beyondTen: Conviction->Conviction {
+	(^(ordering/next) & Conviction->Conviction) - withinTen
 }
 
-// Define temporal logic for time intervals (e.g., 7 years)
-pred sevenYearsAgo[c: Conviction] {
-    2023 - c.date <= 7
+fun nextConviction: Conviction->Conviction {
+	ordering/next & Conviction->Conviction 
 }
 
-pred tenYearsAgo[c: Conviction] {
-    2023 - c.date <= 10
+pred compatibleWithOrdering[r: Conviction->Conviction] {
+	-- r is a subset of the ordering relation on Dates  
+	r in ^(ordering/next)
+	-- for any ordered dates d1-d2-d3, if d1-d3 is in r, then d1-d2 and d2-d3 are as well
+	all d1: Conviction | all d2: d1.^ordering/next | all d3: d2.^ordering/next |
+		d3 in d1.r implies d2 in d1.r and d3 in d2.r
 }
 
-// Expunge a conviction
-pred expunge[c: Conviction] {
-	-- Is Conviction c expunged?
-	c not in setAside
-	setAside' = setAside + c
+fact {
+	-- the within relations are all strict; no reflexive pairs
+	irreflexive[withinSeven + withinTen]
+	-- every date within 7 years is also within 10 years
+	withinSeven in withinTen
+	-- the within-7 relation is compatible with the ordering on Dates
+	withinSeven.compatibleWithOrdering
+	-- the within-10 relation is compatible with the ordering on Dates
+	withinTen.compatibleWithOrdering
+	-- some arithmetic for ordered dates A-B-C:
+	-- if A-B and B-C are both beyond 7, A-C is not within 10
+	no withinTen & beyondSeven.beyondSeven
 }
 
-// Define constraints for eligibility
-pred isEligible(convictions: set Conviction) {
-  // Check eligibility for each conviction in the set.
-  all c1, c2: convictions |
-    (c1.type = Misdemeanor and not sevenYearsAgo[c1] 
-	and not withinSevenYears[c1, c2] implies expunge[c1]) or
-    (c1.type = Felony and not tenYearsAgo[c1] 
-	and not withinTenYears[c1, c2] implies expunge[c1])
+fact {
+	-- Curr should reference the first Conviction at the begining
+	curr = ordering/first
+	-- Each state should show a new curr Conviction
+	all c: Conviction | eventually (curr = c and no other: Conviction - c | curr = other)
 }
 
-// Define the order of convictions
-fact OrderOfConvictions {
-    all c1, c2: Conviction |
-       c1 != c2 and c1.date <= c2.date
+fact {
+	-- Initialize setAside to be empty
+	no setAside
+
+	all c: Conviction | eventually (setAside' in c iff curr in c and 
+		((c in Misdemeanor and c not in setAside and
+			no cn: nextConviction[c] | cn in c.withinSeven)
+			or
+		(c in Felony and c not in setAside and
+			no cn: nextConviction[c] | cn in c.withinTen)))
+
+	--setAside' in curr iff 
+		--(curr in Misdemeanor and curr not in setAside and
+		--	no c: ordering/next[curr] | c in curr.withinSeven)
+	--	or
+		--(curr in Felony and curr not in setAside and
+		--	no c: ordering/next[curr] | c in curr.withinTen)
 }
 
-// Define the intervention of offenses
-
-
-// Define the main predicate to check expungement
-pred CheckExpungement[convictions: set Conviction] {
-    all c: convictions |
-        isEligible[c]
-}
-
-// Initialize convictions
 pred show {
-    some c1: Conviction | {
-        c1.date = 2000 and c1.type = Misdemeanor
-        some c2: Conviction | {
-            c2.date = 2009 and c2.type = Misdemeanor
-            some c3: Conviction | {
-                c3.date = 2010 and c3.type = Felony
-                some c4: Conviction | {
-                    c4.date = 2010 and c4.type = Misdemeanor
-                    some c5: Conviction | {
-                        c5.date = 2011 and c5.type = Misdemeanor
-                        some c6: Conviction | {
-                            c6.date = 2012 and c6.type = Misdemeanor
-                            some c7: Conviction | {
-                                c7.date = 2012 and c7.type = Felony
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+
 }
 
-// Check expungement for the initialized convictions
-run show for 2 Conviction, 2 Date, 2 ConvictionType
+run show for 5 Conviction
