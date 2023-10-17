@@ -54,8 +54,10 @@ fact {
 	-- if A-B and B-C are both beyond 7, A-C is not within 10
 	no withinTen & beyondSeven.beyondSeven
 }
-
+ let orderedConvictions = ordering/first.*nextConviction & Conviction
 fact {
+	-- Initialize setAside to be empty
+	no setAside
 	-- Curr should reference the first Conviction at the begining
 	curr = ordering/first
 	-- Each state should show a new curr Conviction
@@ -63,26 +65,32 @@ fact {
 }
 
 fact {
-	-- Initialize setAside to be empty
-	no setAside
-
-	all c: Conviction | eventually (setAside' in c iff curr in c and 
-		((c in Misdemeanor and c not in setAside and
-			no cn: nextConviction[c] | cn in c.withinSeven)
+	(setAside' in curr iff
+		((curr in Misdemeanor and curr not in setAside and
+			no cn: nextConviction[curr] | cn in curr.withinSeven)
 			or
-		(c in Felony and c not in setAside and
-			no cn: nextConviction[c] | cn in c.withinTen)))
+		(curr in Felony and curr not in setAside and
+			no cn: nextConviction[curr] | cn in curr.withinTen)))
+}
 
-	--setAside' in curr iff 
-		--(curr in Misdemeanor and curr not in setAside and
-		--	no c: ordering/next[curr] | c in curr.withinSeven)
-	--	or
-		--(curr in Felony and curr not in setAside and
-		--	no c: ordering/next[curr] | c in curr.withinTen)
+pred expungedWithinSeven[m: Misdemeanor] {
+	m in setAside' and nextConviction[m] in m.withinSeven
+}
+
+pred expungedWithinTen[f: Felony] {
+	f in setAside' and nextConviction[f] in f.withinTen
+}
+
+fact {
+	no m: Misdemeanor | expungedWithinSeven[m]
+	no f: Felony | expungedWithinTen[f]
 }
 
 pred show {
-
+	
 }
 
-run show for 5 Conviction
+run show for 6 Conviction, 4 Felony
+
+// Check expungement for the initialized convictions
+--run show for 5 Conviction
