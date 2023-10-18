@@ -17,7 +17,7 @@ sig Felony extends Conviction{}
 
 // Convictions that are set aside or not
 var sig setAside in Conviction { }	
-var sig curr in Conviction { }	
+lone var sig curr in Conviction { }	
 
 -- Pairs of dates that are not within 7
 fun beyondSeven: Conviction->Conviction {
@@ -60,17 +60,38 @@ fact {
 	no setAside
 	-- Curr should reference the first Conviction at the begining
 	curr = ordering/first
-	-- Each state should show a new curr Conviction
-	all c: Conviction | eventually (curr = c and no other: Conviction - c | curr = other)
+}
+
+pred blocked[c: Conviction] {
+	(c in Misdemeanor and (some cn: nextConviction[c] | cn in c.withinSeven and not cn in setAside)
+		or convictionLimit[curr])
+	or
+	(c in Felony and (some cn: nextConviction[c] | cn in c.withinTen and not cn in setAside)
+		or convictionLimit[curr])
+}
+
+pred firstUnexpunged[c1, c2: Conviction] {
+	ordering/lte[c1, c2]
+	not c2 in setAside
+	no c3: Conviction | ordering/lte[c1, c3] and ordering/lt[c3, c2] and not c3 in setAside
+}
+
+pred convictionLimit[c: Conviction]{
+	(c in Misdemeanor and (some m1, m2, m3, m4: Misdemeanor | #(m1 + m2 + m3 + m4) = 4 
+		and	(m1 in setAside and m2 in setAside and m3 in setAside and m4 in setAside)))
+	or
+	(c in Felony and (some f1, f2: Felony | #(f1 + f2) = 2 and (f1 in setAside and f2 in setAside)))
 }
 
 fact {
-	(setAside' in curr iff
-		((curr in Misdemeanor and curr not in setAside and
-			no cn: nextConviction[curr] | cn in curr.withinSeven)
-			or
-		(curr in Felony and curr not in setAside and
-			no cn: nextConviction[curr] | cn in curr.withinTen)))
+	always ((some c: Conviction | firstUnexpunged[ordering/next[curr], c]) implies
+		firstUnexpunged[ordering/next[curr], curr'])
+	always ((no c: Conviction | firstUnexpunged[ordering/next[curr], c]) and (some c: Conviction | firstUnexpunged[ordering/first, c]) implies
+		firstUnexpunged[ordering/first, curr'])
+	always ((no c: Conviction | firstUnexpunged[ordering/first, c]) implies no curr')
+
+	always (blocked[curr] implies setAside' = setAside)
+	always (not blocked[curr] implies setAside' = setAside + curr)
 }
 
 pred expungedWithinSeven[m: Misdemeanor] {
@@ -87,10 +108,11 @@ fact {
 }
 
 pred show {
-	
+	eventually some setAside
+	--always some Conviction - setAside
 }
 
-run show for 6 Conviction, 4 Felony
+run show for 6 Misdemeanor, 3 Felony
 
 // Check expungement for the initialized convictions
 --run show for 5 Conviction
