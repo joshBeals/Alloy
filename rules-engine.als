@@ -3,20 +3,24 @@ module rulesEngine
 open util/relation
 open util/ordering[Conviction]
 
+
 // Define a signature for convictions
 abstract sig Conviction{
 	-- the events occurring within 7 years of this date
 	withinSeven: set Conviction,
 	-- the events occurring within 10 years of this date	
-	withinTen: set Conviction		
+	withinTen: set Conviction,
+	
 }
 
 // Define types of convictions
 sig Misdemeanor extends Conviction{}
 sig Felony extends Conviction{}
+sig Invalid extends Conviction{}
 
 // Convictions that are set aside or not
-var sig setAside in Conviction { }	
+var sig setAside in Conviction { }
+var sig unexpungable in Conviction { }	
 lone var sig curr in Conviction { }	
 
 -- Pairs of dates that are not within 7
@@ -54,7 +58,7 @@ fact {
 	-- if A-B and B-C are both beyond 7, A-C is not within 10
 	no withinTen & beyondSeven.beyondSeven
 }
- let orderedConvictions = ordering/first.*nextConviction & Conviction
+
 fact {
 	-- Initialize setAside to be empty
 	no setAside
@@ -68,6 +72,8 @@ pred blocked[c: Conviction] {
 	or
 	(c in Felony and (some cn: nextConviction[c] | cn in c.withinTen and not cn in setAside)
 		or convictionLimit[curr])
+	or
+	(c in Invalid)
 }
 
 pred firstUnexpunged[c1, c2: Conviction] {
@@ -92,6 +98,12 @@ fact {
 
 	always (blocked[curr] implies setAside' = setAside)
 	always (not blocked[curr] implies setAside' = setAside + curr)
+
+	always (convictionLimit[curr] implies not curr in setAside)
+	always (convictionLimit[curr] implies unexpungable' = unexpungable + curr)
+	
+	always (all c: Conviction | c in unexpungable' implies always c in unexpungable')
+	all i: Invalid | always i in unexpungable'
 }
 
 pred expungedWithinSeven[m: Misdemeanor] {
@@ -112,7 +124,7 @@ pred show {
 	--always some Conviction - setAside
 }
 
-run show for 6 Misdemeanor, 3 Felony
+run show for 3 Felony, 3 Misdemeanor, 1 Invalid
 
 // Check expungement for the initialized convictions
 --run show for 5 Conviction
