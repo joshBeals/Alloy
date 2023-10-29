@@ -16,7 +16,7 @@ abstract sig Conviction{
 // Define types of convictions
 sig Misdemeanor extends Conviction{}
 sig Felony extends Conviction{}
-sig Invalid extends Conviction{}
+sig NotExpungable extends Conviction{}
 
 // Convictions that are set aside or not
 var sig setAside in Conviction { }
@@ -73,7 +73,7 @@ pred blocked[c: Conviction] {
 	(c in Felony and (some cn: nextConviction[c] | cn in c.withinTen and not cn in setAside)
 		or convictionLimit[curr])
 	or
-	(c in Invalid)
+	(c in NotExpungable)
 }
 
 pred firstUnexpunged[c1, c2: Conviction] {
@@ -103,7 +103,7 @@ fact {
 	always (convictionLimit[curr] implies unexpungable' = unexpungable + curr)
 	
 	always (all c: Conviction | c in unexpungable' implies always c in unexpungable')
-	all i: Invalid | always i in unexpungable'
+	all n: NotExpungable | always n in unexpungable'
 }
 
 pred expungedWithinSeven[m: Misdemeanor] {
@@ -124,7 +124,7 @@ pred show {
 	--always some Conviction - setAside
 }
 
-run show for 3 Felony, 3 Misdemeanor, 1 Invalid
+run show for 3 Felony, 3 Misdemeanor, 2 NotExpungable
 
 // Check expungement for the initialized convictions
 --run show for 5 Conviction
