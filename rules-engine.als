@@ -3,14 +3,12 @@ module rulesEngine
 open util/relation
 open util/ordering[Conviction]
 
-
 // Define a signature for convictions
 abstract sig Conviction{
 	-- the events occurring within 7 years of this date
 	withinSeven: set Conviction,
 	-- the events occurring within 10 years of this date	
 	withinTen: set Conviction,
-	
 }
 
 // Define types of convictions
@@ -21,6 +19,7 @@ sig NotExpungable extends Conviction{}
 // Convictions that are set aside or not
 var sig setAside in Conviction { }
 var sig unexpungable in Conviction { }	
+var sig expungableButLimitReached in Conviction { }
 lone var sig curr in Conviction { }	
 
 -- Pairs of dates that are not within 7
@@ -76,6 +75,14 @@ pred blocked[c: Conviction] {
 	(c in NotExpungable)
 }
 
+//pred alwaysBlocked[c: Conviction] {
+//	(c in Misdemeanor and (some cn: nextConviction[c] | cn in c.withinSeven and not cn in setAside)
+//		and convictionLimit[curr])
+//	or
+//	(c in Felony and (some cn: nextConviction[c] | cn in c.withinTen and not cn in setAside)
+//		and convictionLimit[curr])
+//}
+
 pred firstUnexpunged[c1, c2: Conviction] {
 	ordering/lte[c1, c2]
 	not c2 in setAside
@@ -103,6 +110,7 @@ fact {
 	always (convictionLimit[curr] implies unexpungable' = unexpungable + curr)
 	
 	always (all c: Conviction | c in unexpungable' implies always c in unexpungable')
+	always (all c: Conviction | c in expungableButLimitReached' implies always c in expungableButLimitReached')
 	all n: NotExpungable | always n in unexpungable'
 }
 
@@ -124,7 +132,21 @@ pred show {
 	--always some Conviction - setAside
 }
 
-run show for 3 Felony, 3 Misdemeanor, 2 NotExpungable
+run show for 4 Felony, 3 Misdemeanor, 1 NotExpungable
+
+//Rules engine:
+//
+//Add termination condition. (Flag to indicate that there's nothing left to examine. initially set to false. If we get a conviction that is unexpungable, when we get to the end, we check if the flag is true, we go back else we terminate). and when we go back, we set the flag to false again.
+//
+//If the limit is reached, then we could just stop the algorithm.
+//Categorize expungements:
+//- Unexpungable.
+//- Never expungable.
+//- Expungable but the limit has been reached.
+//
+//Expungable, Expunged (subset of expungable always). as long as limit hasn't been reached, we add to both expungable and expunged. but if the limit has been reached, we add to expungable but not expunged.
+//
+//Unexpungable will always be All expungements - expungable.
 
 // Check expungement for the initialized convictions
 --run show for 5 Conviction
