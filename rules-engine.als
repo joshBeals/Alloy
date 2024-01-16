@@ -134,19 +134,5 @@ pred show {
 
 run show for 4 Felony, 3 Misdemeanor, 1 NotExpungable
 
-//Rules engine:
-//
-//Add termination condition. (Flag to indicate that there's nothing left to examine. initially set to false. If we get a conviction that is unexpungable, when we get to the end, we check if the flag is true, we go back else we terminate). and when we go back, we set the flag to false again.
-//
-//If the limit is reached, then we could just stop the algorithm.
-//Categorize expungements:
-//- Unexpungable.
-//- Never expungable.
-//- Expungable but the limit has been reached.
-//
-//Expungable, Expunged (subset of expungable always). as long as limit hasn't been reached, we add to both expungable and expunged. but if the limit has been reached, we add to expungable but not expunged.
-//
-//Unexpungable will always be All expungements - expungable.
-
 // Check expungement for the initialized convictions
 --run show for 5 Conviction
