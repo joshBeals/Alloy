@@ -78,6 +78,7 @@ pred blocked[c: Conviction] {
 	(c in NotExpungable)
 }
 
+/* Is c2 the first unexpunged conviction after c1? */
 pred firstUnexpunged[c1, c2: Conviction] {
 	ordering/lte[c1, c2]
 	not c2 in setAside
@@ -102,14 +103,13 @@ fact {
 		firstUnexpunged[ordering/first, curr'])
 	always ((no c: Conviction | firstUnexpunged[ordering/first, c]) implies no curr')
 
-	always (blocked[curr] implies setAside' = setAside)
-	always (not blocked[curr] implies setAside' = setAside + curr)
-	//always (not blocked[curr] implies flag' = flag + curr)
+	always (blocked[curr] implies (setAside' = setAside))
+	always (blocked[curr] and not lastConviction[curr] implies (flag' = flag))
+	always (not blocked[curr] implies (setAside' = setAside + curr))
+	always (not blocked[curr] and not lastConviction[curr] implies (flag' = flag + curr))
 
-	//always ((lastConviction[curr] and no flag) implies no curr')
-//	always ((lastConviction[curr] and (not (no flag))) implies no flag)
-//
-//	always (lastConviction[curr] implies flag = none)
+	always ((lastConviction[curr] and no flag) implies no curr')
+	always ((lastConviction[curr] and some flag) implies no flag')
 
 	always (convictionLimit[curr] implies not curr in setAside)
 	always (convictionLimit[curr] implies unexpungable' = unexpungable + curr)
@@ -133,7 +133,7 @@ fact {
 }
 
 pred show {
-	always no setAside
+	eventually some setAside
 	--always some Conviction - setAside
 }
 
