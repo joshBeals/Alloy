@@ -116,8 +116,6 @@ fact {
 	/*Reset flag to null if it's not empty when we get to the end of the iteration*/
 	always ((lastConviction[curr] and some flag) implies no flag')
 
-	//always (ordering/lt[curr, curr'] and curr in unexpungable and curr' in unexpungable implies no curr')
-
 	always (convictionLimit[curr] implies not curr in setAside)
 	always (convictionLimit[curr] implies unexpungable' = unexpungable + curr)
 	
