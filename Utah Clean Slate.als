@@ -2,7 +2,7 @@
 module expunge
 
 open util/relation
-open util/ordering[Date]	-- Dates are linearly ordered
+open util/ordering[Date]
 
 -- An event is a conviction or an expungement
 abstract sig Event { 
@@ -36,7 +36,7 @@ abstract sig Infraction extends Conviction { }
 abstract sig DrugPossessionOffense extends Conviction {}
 
 sig Expungement extends Event {
-	con: some Conviction -- the convictions that are being expunged
+	con: some Conviction
 	-- note: multiple convictions may be expunged in a single event
 }
 
@@ -51,18 +51,15 @@ fun exp: Conviction->Expungement {
 
 -- Well-behaved convictions and expungements
 fact {
-	-- Convictions and expungements do not happen simultaneously
 	always (now in Conviction or now in Expungement or no now)
-	-- Every expungement is expunging a preceding conviction
 	all x: Expungement | hb[x.con, x]
-	-- Every conviction is expunged at most once
 	all c: Conviction | lone c.exp
 }
 
 sig Date {
-	withinFive: set Date,		-- the events occurring within 5 years of this date
-	withinSix: set Date,		-- the events occurring within 6 years of this date
-	withinSeven: set Date		-- the events occurring within 7 years of this date
+	withinFive: set Date,	
+	withinSix: set Date,	
+	withinSeven: set Date	
 }
 -- Pairs of dates that are not within 6
 fun beyondSix: Date->Date {
@@ -86,35 +83,20 @@ pred compatibleWithOrdering[r: Date->Date] {
 }
 -- Well-behaved dates
 fact {
-	-- the within relations are all strict; no reflexive pairs
 	irreflexive[withinFive + withinSix + withinSeven]
-	-- every date within 5 years is also within 6 years
 	withinFive in withinSix
-	-- the within-5 relation is compatible with the ordering on Dates
 	withinFive.compatibleWithOrdering
-	-- every date within 6 years is also within 7 years
 	withinSix in withinSeven
-	-- the within-6 relation is compatible with the ordering on Dates
 	withinSix.compatibleWithOrdering
-	-- the within-7 relation is compatible with the ordering on Dates
 	withinSeven.compatibleWithOrdering
-	-- some arithmetic for ordered dates A-B-C:
-	-- if A-B and B-C are both beyond 5, A-C is not within 6
 	no withinSix & beyondFive.beyondFive
-	-- if A-B is beyond 5 and B-C is beyond 6, A-C is not within 7
 	no withinSeven & (beyondFive.beyondSix + beyondSix.beyondFive)
-	-- if A-B and B-C are both within 3, A-C is within 7
-	--withinThree.withinThree in withinSeven
-	-- every date is associated with at least one event
 	Date in Event.date
-	--lone (Date - Event.date) -- *** This is a hack ***
-	-- All events happening now have the same date
 	always (some now implies one now.date)
-	-- Date ordering is consistent with event ordering
 	all e1, e2: Event | hb[e1, e2] implies e1.date.lt[e2.date]
 }
 
-
+-- Implementing Waiting Times
 pred expungedWithinFive[c: Conviction] {
 	((c in ClassCMisdemeanor) or (c in Infraction)) and  c.expunged and c.exp.date in c.date.withinFive
 }
@@ -126,7 +108,6 @@ pred expungedWithinSeven[c: Conviction] {
 }
 
 -- Expungemnt Limit Cases
-
 --Case 1: Two or more felony (except drug possesion offenses).
 pred case1[c: Conviction] {
 	some f1, f2: Felony |
@@ -146,9 +127,15 @@ pred case3[c:Conviction]{
 }
 --Case 4: Five or more convictions (except drug possesion offenses). Could be mix of misdemeanors and felony.
 pred case4[c:Conviction]{
-	some disj c1, c2, c3, c4: Conviction |
-		hb[c1, c2] and hb[c2, c3] and hb[c3, c4] and hb[c4, c] and
-		(#(DrugPossessionOffense & (c1 + c2 + c3 + c4)) = 0) and (#(ClassBMisdemeanor & (c1 + c2 + c3 + c4)) = 3)
+	some disj c1, c2, c3, c4, c5: Conviction |
+		hb[c1, c2] and hb[c2, c3] and hb[c3, c4] and hb[c4, c5] and hb[c5, c] and 
+		(#(DrugPossessionOffense & (c1 + c2 + c3 + c4 + c5)) = 0)
+}
+--Case 5: Any combination of five or more convictions for drug possession offenses.
+pred case5[c:Conviction]{
+	some disj c1, c2, c3, c4, c5: DrugPossessionOffense |
+		#(c1 + c2 + c3 + c4 + c5) = 5 and
+		hb[c1, c2] and hb[c2, c3] and hb[c3, c4] and hb[c4, c5] and hb[c5, c]
 }
 
 fact {
@@ -164,14 +151,14 @@ fact {
 	no c: Conviction | case4[c] and expunged[c]
 }
 
---Case 5: Three or more felony convictions for drug possession offenses.
---Case 6: Any combination of five or more convictions for drug possession offenses.
+--Case 6: Three or more felony convictions for drug possession offenses.
+
 
 pred show{
 	eventually some c: Conviction | c.expunged
 }
 
-run case3 for 5
+run case5 for 7
 
 
 
