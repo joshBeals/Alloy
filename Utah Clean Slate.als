@@ -109,30 +109,30 @@ pred expungedWithinSeven[c: Conviction] {
 
 -- Expungemnt Limit Cases
 --Case 1: Two or more felony (except drug possesion offenses).
-pred case1[c: Conviction] {
+pred afterTwoFelony[c: Conviction] {
 	some f1, f2: Felony |
 		#(f1 + f2) = 2 and hb[f1, c] and hb[f2, c]
 }
 --Case 2: Any combination of three or more convictions (except drug possesion offenses) that includes two class A misdemeanors.
-pred case2[c:Conviction]{
+pred threeConvictionsTwoClassA[c:Conviction]{
 	some disj c1, c2, c3: Conviction |
 		hb[c1, c2] and hb[c2, c3] and hb[c3, c] and
 		(#(DrugPossessionOffense & (c1 + c2 + c3)) = 0) and (#(ClassAMisdemeanor & (c1 + c2 + c3)) = 2)
 }
 --Case 3: Any combination of four or more convictions (except drug possesion offenses) that includes three class B misdemeanors.
-pred case3[c:Conviction]{
+pred fourConvictionsThreeClassB[c:Conviction]{
 	some disj c1, c2, c3, c4: Conviction |
 		hb[c1, c2] and hb[c2, c3] and hb[c3, c4] and hb[c4, c] and
 		(#(DrugPossessionOffense & (c1 + c2 + c3 + c4)) = 0) and (#(ClassBMisdemeanor & (c1 + c2 + c3 + c4)) = 3)
 }
 --Case 4: Five or more convictions (except drug possesion offenses). Could be mix of misdemeanors and felony.
-pred case4[c:Conviction]{
+pred fiveNonDrugOffenses[c:Conviction]{
 	some disj c1, c2, c3, c4, c5: Conviction |
 		hb[c1, c2] and hb[c2, c3] and hb[c3, c4] and hb[c4, c5] and hb[c5, c] and 
 		(#(DrugPossessionOffense & (c1 + c2 + c3 + c4 + c5)) = 0)
 }
 --Case 5: Any combination of five or more convictions for drug possession offenses.
-pred case5[c:Conviction]{
+pred fiveDrugOffenses[c:Conviction]{
 	some disj c1, c2, c3, c4, c5: DrugPossessionOffense |
 		#(c1 + c2 + c3 + c4 + c5) = 5 and
 		hb[c1, c2] and hb[c2, c3] and hb[c3, c4] and hb[c4, c5] and hb[c5, c]
@@ -145,21 +145,24 @@ fact {
 	no c: ClassCMisdemeanor | expungedWithinFive[c]
 	no i: Infraction | expungedWithinFive[i]
 	
-	no c: Conviction | case1[c] and expunged[c]
-	no c: Conviction | case2[c] and expunged[c]
-	no c: Conviction | case3[c] and expunged[c]
-	no c: Conviction | case4[c] and expunged[c]
+	no c: Conviction | afterTwoFelony[c] and expunged[c]
+	no c: Conviction | threeConvictionsTwoClassA[c] and expunged[c]
+	no c: Conviction | fourConvictionsThreeClassB[c] and expunged[c]
+	no c: Conviction | fiveNonDrugOffenses[c] and expunged[c]
+	no c: Conviction | fiveDrugOffenses[c] and expunged[c]
 }
 
 --Case 6: Three or more felony convictions for drug possession offenses.
 
 
 pred show{
-	eventually some c: Conviction | c.expunged
+	--eventually some c: Conviction | c.expunged
+	some disj f1, f2, f3: Felony |
+		#(f1+f2+f3) = 3 and
+		hb[f1, f2] and hb[f2, f3] and
+		(eventually f1 in now) and f1.expunged
+		and (eventually f2 in now) and f2.expunged
+		and (eventually f3 in now) and f3.expunged
 }
 
-run case5 for 7
-
-
-
-
+run show for 5 Event, 3 Date
