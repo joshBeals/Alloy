@@ -150,6 +150,8 @@ fact {
 	no c: Conviction | fourConvictionsThreeClassB[c] and expunged[c]
 	no c: Conviction | fiveNonDrugOffenses[c] and expunged[c]
 	no c: Conviction | fiveDrugOffenses[c] and expunged[c]
+
+	no c: Conviction | c in Unexpungeable and expunged[c]
 }
 
 pred show{
