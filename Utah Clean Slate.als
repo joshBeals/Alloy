@@ -104,7 +104,7 @@ pred expungedWithinSix[c: ClassBMisdemeanor] {
 	c.expunged and c.exp.date in c.date.withinSix
 }
 pred expungedWithinSeven[c: Conviction] {
-	((c in ClassAMisdemeanor) or (c in Felony)) c.expunged and c.exp.date in c.date.withinSeven
+	((c in ClassAMisdemeanor) or (c in Felony)) and c.expunged and c.exp.date in c.date.withinSeven
 }
 
 -- Expungemnt Limit Cases
@@ -152,17 +152,17 @@ fact {
 	no c: Conviction | fiveDrugOffenses[c] and expunged[c]
 }
 
---Case 6: Three or more felony convictions for drug possession offenses.
-
-
 pred show{
 	--eventually some c: Conviction | c.expunged
+	/*
 	some disj f1, f2, f3: Felony |
 		#(f1+f2+f3) = 3 and
 		hb[f1, f2] and hb[f2, f3] and
 		(eventually f1 in now) and f1.expunged
 		and (eventually f2 in now) and f2.expunged
 		and (eventually f3 in now) and f3.expunged
+	*/
+	--some c: Conviction | fiveDrugOffenses[c] and expunged[c]
 }
 
 run show for 5 Event, 3 Date
