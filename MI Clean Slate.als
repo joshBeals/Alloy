@@ -1,18 +1,39 @@
- module expunge
+module expunge
 
 open util/relation
 open util/ordering[Date]	-- Dates are linearly ordered
 
 -- An event is a conviction or an expungement
 abstract sig Event { 
-	date: one Date -- each event has an associated date
+	date: one Date, -- each event has an associated date
+	var nxt: set Event
 }
 
 -- now indicates the current event
-var sig now in Event { } 
+var sig now in Event { }
+-- past indicates the set of past events
+var sig past in Event { }
+var sig pastExpunged in Event { }
+var sig sec1_1bViolations in Conviction { }
+var sig sec1_1cViolations in Conviction { }
+var sig sec1d_2Violations in Conviction { }
+var sig sec1dTimingViolations in Conviction { }
+var sig backwardWaitingViolations in Conviction { }
+var sig forwardWaitingViolations in Conviction { }
+
+-- initially, no past
+fact {
+	no past
+	always (past' = past + now)
+
+	always (pastExpunged' = (now in Expungement implies pastExpunged + now.con else pastExpunged))
+
+	no nxt
+	always ((some now) implies (nxt' = nxt + now->now'))
+}
 
 -- The strict happens-before relation for events (no reflexive pairs)
-pred hb[e1, e2: Event] {
+pred happensBefore[e1, e2: Event] {
 	eventually (e1 in now and after eventually e2 in now)
 }
 
@@ -22,14 +43,15 @@ fact {
 	always (no now implies always no now)
 	-- Every event occurs exactly once
 	all e: Event | eventually (e in now and after always e not in now)
+	-- Always update past to include the current now
 }
 
 -- A conviction is a felony or a misdemeanor
 abstract sig Conviction extends Event { }
+sig Assaultive in Conviction { }
 
 abstract sig Felony extends Conviction { }
 -- Special types of felony: assaultive, ten-year
-sig AssaultiveFelony in Felony { }
 sig TenYearFelony in Felony { }
 
 abstract sig Misdemeanor extends Conviction { }
@@ -41,10 +63,10 @@ sig Expungement extends Event {
 	-- note: multiple convictions may be expunged in a single event
 }
 
--- Is the conviction c (eventually) expunged?
-pred expunged[c: Conviction] {
-	some con.c
+fun expunged: Conviction {
+	Expungement.con
 }
+
 fun exp: Conviction->Expungement {
 	~con
 }
@@ -54,15 +76,22 @@ fact {
 	-- Convictions and expungements do not happen simultaneously
 	always (now in Conviction or now in Expungement or no now)
 	-- Every expungement is expunging a preceding conviction
-	all x: Expungement | hb[x.con, x]
+	all x: Expungement | all c: x.con | happensBefore[c, x]
+	-- Every convictions happen before the expungement
+	all x: Expungement | all c: Conviction | happensBefore[c, x]
+	all c1, c2: Conviction | c1 != c2 implies c1.date != c2.date
 	-- Every conviction is expunged at most once
 	all c: Conviction | lone c.exp
 }
 
+
 sig Date {
 	withinThree: set Date,	-- the events occurring within 3 years of this date
 	withinFive: set Date,		-- the events occurring within 5 years of this date
-	withinSeven: set Date		-- the events occurring within 7 years of this date
+	withinSeven: set Date	-- the events occurring within 7 years of this date
+}
+fun nextDate: Date->Date {
+	ordering/next 
 }
 -- Pairs of dates that are not within 3
 fun beyondThree: Date->Date {
@@ -72,8 +101,14 @@ fun beyondThree: Date->Date {
 fun beyondFive: Date->Date {
 	(^(ordering/next) & Date->Date) - withinFive
 }
-fun nextDate: Date->Date {
-	ordering/next & Date->Date 
+fun w3: Event->Event {
+	{e1: Event, e2: Event | e1.date->e2.date in withinThree}
+}
+fun w5: Event->Event {
+	{e1: Event, e2: Event | e1.date->e2.date in withinFive}
+}
+fun w7: Event->Event {
+	{e1: Event, e2: Event | e1.date->e2.date in withinSeven}
 }
 pred compatibleWithOrdering[r: Date->Date] {
 	-- r is a subset of the ordering relation on Dates  
@@ -105,181 +140,139 @@ fact {
 	withinThree.withinThree in withinSeven
 	-- every date is associated with at least one event
 	Date in Event.date
-	--lone (Date - Event.date) -- *** This is a hack ***
 	-- All events happening now have the same date
 	always (some now implies one now.date)
 	-- Date ordering is consistent with event ordering
-	all e1, e2: Event | hb[e1, e2] implies e1.date.lt[e2.date]
+	all e1, e2: Event | happensBefore[e1, e2] implies e1.date.lt[e2.date]
 }
 
 
-pred afterNEvents[E: Event, e: Event, n: Int] {
-   	n = 1 implies afterFirstEvent[E, e]
-   	n = 2 implies afterSecondEvent[E, e]
-   	n = 3 implies afterThirdEvent[E, e]
-   	n = 4 implies afterFourthEvent[E, e]
-   	n = 5 implies afterFifthEvent[E, e]
-   	n = 6 implies afterSixthEvent[E, e]
-   	n = 7 implies afterSeventhEvent[E, e]
-   	n > 7 implies afterEightEvent[E, e]
-}
-
--- Does the Event e occur after 1 preceding events E?
-pred afterFirstEvent[E: Event, e: Event] {
-  some e1: E |
-    hb[e1, e]
-}
-
--- Does the Event e occur after 2 preceding events E?
-pred afterSecondEvent[E: Event, e: Event] {
-  some e1: E |
-    afterFirstEvent[E, e] and hb[e1, e] and no e2: E |
-      afterFirstEvent[E, e] and hb[e2, e] and e1 != e2
-}
-
--- Does the Event e occur after 3 preceding events E?
-pred afterThirdEvent[E: Event, e: Event] {
-  some e1: E |
-    afterSecondEvent[E, e] and hb[e1, e] and no e2: E |
-      afterSecondEvent[E, e] and hb[e2, e] and e1 != e2
-}
-
--- Does the Event e occur after 4 preceding events E?
-pred afterFourthEvent[E: Event, e: Event] {
-  some e1: E |
-    afterThirdEvent[E, e] and hb[e1, e] and no e2: E |
-      afterThirdEvent[E, e] and hb[e2, e] and e1 != e2
-}
-
--- Does the Event e occur after 5 preceding events E?
-pred afterFifthEvent[E: Event, e: Event] {
-  some e1: E |
-    afterFourthEvent[E, e] and hb[e1, e] and no e2: E |
-      afterFourthEvent[E, e] and hb[e2, e] and e1 != e2
-}
-
--- Does the Event e occur after 6 preceding events E?
-pred afterSixthEvent[E: Event, e: Event] {
-  some e1: E |
-    afterFifthEvent[E, e] and hb[e1, e] and no e2: E |
-      afterFifthEvent[E, e] and hb[e2, e] and e1 != e2
-}
-
--- Does the Event e occur after 7 preceding events E?
-pred afterSeventhEvent[E: Event, e: Event] {
-  some e1: E |
-    afterSixthEvent[E, e] and hb[e1, e] and no e2: E |
-      afterSixthEvent[E, e] and hb[e2, e] and e1 != e2
-}
-
--- Does the Event e occur after 8 preceding events E?
-pred afterEightEvent[E: Event, e: Event] {
-  some e1: E |
-    afterSeventhEvent[E, e] and hb[e1, e] and no e2: E |
-      afterSeventhEvent[E, e] and hb[e2, e] and e1 != e2
-}
-
-pred noExpungedAfterNEvents[E: Event, E1: Event, N: Int] {
-    no e: E | afterNEvents[E, E1, N] and expunged[e]
-}
-
---No conviction may be expunged after three or more felonies (Sec. 1, 1a).
---pred sec1_1a {	
---	no c: Conviction | afterThirdFelony[c] and expunged[c]
---}
-
-pred sec1_1a {
-   noExpungedAfterNEvents[Felony, Conviction, 5]
+-- No conviction may be expunged after three or more felonies (Sec. 1, 1a).
+pred sec1_1aViolation[x: Expungement] {	
+	some disj f1, f2, f3: Felony |
+		happensBefore[f1, x] and happensBefore[f2, x] and happensBefore[f3, x]
 }
 
 -- No more than two assaultive felonies may be expunged (Sec. 1, 1b).
---pred sec1_1b {
-	--no af: AssaultiveFelony | afterSecondAssault[af] and expunged[af]
---}
-pred sec1_1b {
-    noExpungedAfterNEvents[AssaultiveFelony, AssaultiveFelony, 2]
+pred sec1_1bViolation[af: Assaultive] {
+	some disj af1, af2: Assaultive |
+		happensBefore[af1, af] and happensBefore[af2, af]
 }
 
--- Does the ten-year felony ty occur after a preceding ten-year felony?
-pred afterFirstTenner[ty: TenYearFelony] {
-	some ty1: TenYearFelony - ty | hb[ty1, ty]
-}
 -- Only one ten year felony may be expunged (Sec. 1, 1c).
-pred sec1_1c {
-	no ty: TenYearFelony | afterFirstTenner[ty] and expunged[ty]
+pred sec1_1cViolation[ty:TenYearFelony] {
+	some ty1: TenYearFelony - ty | happensBefore[ty1, ty]
 }
 
--- Does the OWI occur after a preceding OWI?
-pred afterFirstOWI[owi: OWI] {
-	some owi1: OWI | hb[owi1, owi]
-}
 -- Only one OWI may be expunged (Sec. 1d, 2abcd).
-pred sec1d_2 {
-	no owi: OWI | afterFirstOWI[owi] and expunged[owi]
+pred sec1d_2Violation[owi: OWI] {
+	some owi1: OWI | happensBefore[owi1, owi]
 }
 
--- Is the misdemeanor m expunged within three years?
-pred expungedWithinThree[m: Misdemeanor] {
-	m.expunged and m.exp.date in m.date.withinThree
-}
--- Is the felony f expunged within five years?
-pred expungedWithinFive[f: Felony] {
-	f.expunged and f.exp.date in f.date.withinFive
-}
--- Is the felony f expunged within seven years?
-pred expungedWithinSeven[f: Felony] {
-	f.expunged and f.exp.date in f.date.withinSeven
-}
--- Is there an additional, intervening felony between felony f and event e?
-pred interveningFelony[f: Felony, e: Event] {
-	some f1: Felony | hb[f, f1] and hb[f1, e]
-}
-pred sec1d_timing {
-	no m: Misdemeanor | expungedWithinThree[m]
-	no f: Felony | expungedWithinFive[f]
-	no f: Felony | interveningFelony[f, f.exp] and expungedWithinSeven[f]
+pred sec1dTimingViolation[c: Conviction, x: Expungement] {
+	x.date in c.date.(c.waitingPeriod)
 }
 
--- WithinTimeFrame
-pred backwardWaiting {
-	no x: Expungement |
-		(some m: Misdemeanor | x.date in m.date.withinThree)
-		or (some f: Felony | x.date in f.date.withinFive)
-		or (some f: Felony | interveningFelony[f, x] and x.date in f.date.withinSeven)
+fun waitingPeriod[c: Conviction]: Date->Date {
+	(c in Misdemeanor implies withinThree else withinFive)
 }
 
-pred forwardWaiting {
-	all m: Misdemeanor | m.expunged implies no c: Conviction | c.date in m.date.withinThree
-	all f: Felony | f.expunged implies no c: Conviction | c.date in f.date.withinFive
-	all f1: Felony | f1.expunged implies no f2: Felony | f2.date in f1.date.withinSeven
+pred backwardWaitingViolation[c: Conviction, x: Expungement] {
+	x.date in c.date.(c.waitingPeriod)
+}
+
+pred forwardWaitingViolation[c: Conviction] {
+	some c1: Conviction | c1.date in c.date.(c.waitingPeriod)
+}
+
+pred expungeable[c: Conviction] {
+	(c in Assaultive implies not sec1_1bViolation[c])
+	and (c in TenYearFelony implies not sec1_1cViolation[c])
+	and (c in OWI implies not sec1d_2Violation[c])
+}
+
+pred expungeable[c: Conviction, x: Expungement] {
+	(expungeable[c])
+	and (not sec1dTimingViolation[c, x])
+	and (not forwardWaitingViolation[c])
 }
 
 -- The constraints of MCL 780.621 hold in the model.
 fact {
-	sec1_1a
-	sec1_1b 
-	sec1_1c 
-	sec1d_2
-	sec1d_timing
+	all x: Expungement | not sec1_1aViolation[x]
+	all c: expunged | expungeable[c, c.exp]
+}
+
+fact {
+    -- Track violations for sec1_1b (Assaultive felonies)
+    always (all c: Conviction | 
+        sec1_1bViolation[c]
+		 implies sec1_1bViolations' = sec1_1bViolations + c 
+	       	 else sec1_1bViolations' = sec1_1bViolations
+	)
+
+    -- Track violations for sec1_1c (Ten Year Felonies)
+    always (all c: Conviction | 
+        sec1_1cViolation[c]
+		implies sec1_1cViolations' = sec1_1cViolations + c
+		else sec1_1cViolations' = sec1_1cViolations
+	)
+
+    -- Track violations for sec1d_2 (OWI)
+    always (all c: Conviction | 
+        sec1d_2Violation[c]
+		 implies sec1d_2Violations' = sec1d_2Violations + c 
+		else sec1d_2Violations' = sec1d_2Violations		
+	)
+
+    -- Track violations for sec1dTiming
+    always (all c: Conviction, x: Expungement | 
+        (x.date in c.date.(c.waitingPeriod))
+        	implies sec1dTimingViolations' = sec1dTimingViolations + c
+		else sec1dTimingViolations' = sec1dTimingViolations
+	    )
+
+    -- Track violations for backward waiting period
+    always (all c: Conviction, x: Expungement | 
+        (x.date in c.date.(c.waitingPeriod))
+       		implies backwardWaitingViolations' = backwardWaitingViolations + c
+		else backwardWaitingViolations' = backwardWaitingViolations
+	)
+
+    always(all c: Conviction | 
+	(some c1: Conviction | c1.date in c.date.(c.waitingPeriod))
+		implies forwardWaitingViolations' = forwardWaitingViolations + c
+		else forwardWaitingViolations' = forwardWaitingViolations
+	)
 }
 
 pred show {
-	--backwardWaiting
-	--not forwardWaiting
-
-	-- test whether now can have multiple events
-	--eventually not lone now
-
-	-- Q: is it possible to have 4 felonies expunged?
-	-- A: Yes! because of the one-bad-night rule
-	--some f1, f2, f3, f4: Felony |
-		--#(f1+f2+f3+f4) = 4
-	--	and (eventually f1 in now) and f1.expunged
-	--	and (eventually f2 in now) and f2.expunged
-	--	and (eventually f3 in now) and f3.expunged
-	--	and (eventually f4 in now) and f4.expunged
-	
-	some c: Conviction, e: Felony | afterSecondEvent[e, c] and expunged[c]
+-- one Big Expungement that expunges all expungeable convictions
+	some x: Expungement | all c: Conviction | expungeable[c] implies c in x.con
+-- not all convictions are expungable (just to make it fun)
+	some c: Conviction | not expungeable[c]
 }
---run afterThirdEvent for 3 Conviction, 3 Felony, 3 Event, 3 Date
-run show for 5 Event, 3 Date
+
+
+pred test {
+	some c1: Conviction, c2: Conviction, c3: Conviction, c4: Conviction, exp: Expungement | 
+
+		((c2 != c1)) and 
+		((c3 != c1) and (c3 != c2)) and 
+		((c4 != c1) and (c4 != c2) and (c4 != c3)) and 
+
+		((c2 in Felony) and (not c2 in Assaultive) and (not c2 in TenYearFelony)) and 
+		((c3 in Misdemeanor) and (not c3 in Assaultive) and (not c3 in OWI)) and 
+
+		happensBefore[c2, c3] and 
+
+		c3.date in c2.date.withinThree and 
+		(( c4.date in c3.date.beyondFive ) or ( c4.date in c3.date.withinThree )) and 
+
+		exp.date in c2.date.beyondFive and 
+		exp.date in c3.date.beyondFive and 
+		exp.date in c4.date.beyondFive
+}
+
+-- Run the test with a reasonable scope
+run test for exactly 5 Event, exactly 5 Date 
